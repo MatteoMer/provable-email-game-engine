@@ -1,0 +1,23 @@
+[package]
+name = "hyle-zkemail-engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pgn-reader = "0.26.0"
+shakmaty = "0.27.1"
+
+[workspace]
+members = [
+    "referee",
+    "chess/host",
+    "chess/methods"
+]
+resolver = "2"
+
+[profile.dev]
+opt-level = 3
+
+[profile.release]
+debug = 1
+lto = true
