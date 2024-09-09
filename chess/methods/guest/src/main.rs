@@ -2,7 +2,7 @@
 // LastPosition impl for Visitor is taken from the pgn_reader docs
 // https://docs.rs/pgn-reader/latest/pgn_reader/
 
-use hyle_contract::{HyleInput, HyleOutput};
+use hyle_contract::HyleInput;
 use pgn_reader::{BufferedReader, RawHeader, SanPlus, Skip, Visitor};
 use risc0_zkvm::guest::env;
 use shakmaty::fen::Fen;
@@ -51,16 +51,21 @@ impl Visitor for LastPosition {
     }
 }
 
+// is it bad if i dont commit the hyle struct in the guest?
 fn main() {
     // read the pgn
-    let pgn: String = env::read();
-
-    env::commit(&pgn);
+    let input: HyleInput<String> = env::read();
+    let pgn: String = input.program_inputs;
 
     let mut reader = BufferedReader::new_cursor(&pgn[..]);
 
     let mut visitor = LastPosition::new();
-    let pos = reader.read_game(&mut visitor).unwrap();
+    let pos = reader
+        .read_game(&mut visitor)
+        .unwrap()
+        .expect("invalid game");
 
-    env::commit(&pos.map_or(false, |p| p.is_checkmate()));
+    let is_checkmate: bool = pos.is_checkmate();
+
+    env::commit(&is_checkmate);
 }
