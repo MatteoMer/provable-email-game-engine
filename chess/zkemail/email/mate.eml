@@ -1,0 +1,92 @@
+Delivered-To: matmatteomer@gmail.com
+Received: by 2002:a59:9a01:0:b0:496:99ac:86fa with SMTP id h1csp772417vqn;
+        Fri, 20 Sep 2024 01:47:35 -0700 (PDT)
+X-Received: by 2002:a05:6a21:1690:b0:1cf:1218:fa8 with SMTP id adf61e73a8af0-1d30a9cc342mr3691309637.22.1726822055181;
+        Fri, 20 Sep 2024 01:47:35 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1726822055; cv=none;
+        d=google.com; s=arc-20240605;
+        b=GhcfUgvdxJgrQ2nwKSAF2IyRgw7P0KH5cLJnrIc6esIvcSIkannpANxk9WkkLV8epp
+         +tx+ZnZ/8A15aFADlIcz9Maa60G7sTqW9C4Znjl5lXql3VCk20uHR0ddjOzcSrV6xMZK
+         q6v2lLV4e6FHYVKNPJg5DIeUGYCP0O3RixkFtQrqlh6+1qrWE94fR7XtPQPJ6h7+mGOf
+         T+YuA3MuXqp3ox5aA9/zD6ESAWp0rGUyuZWT3A7VIcvzsGHTt2UVMR0IZUx5BhY6Jvzb
+         HdI8lJktaHF8BtcAhAD4eyaWaOHYdiCy+uX0wY7TloxvFy3pc7Jgkb43B8XyqOE3OC2s
+         Bq1A==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20240605;
+        h=cc:to:subject:message-id:date:from:mime-version:dkim-signature;
+        bh=8y4eZr5itf8wnutGYTPof5OKtUcCibJIDk5gKunUfeQ=;
+        fh=fbZz6xb+YIyXjkO0GwQpUCrER0h6Q5nfjb9CKOzW0ME=;
+        b=CkFSyECMhk9SUB68ix0q0TegE9arP58j4gPHI5QlVNI/fHCrvVh/cdPMnPtGw2n3KP
+         d2gKJolJKVl12vSAtW0Hcz3SGOOxihA+kxLSeYALAzea9wT9mn4eIP/5vZgxlGjGYkyf
+         WBDqJBmL/blbUrAhY9AHSRPA7vinrAxb4IHDkN/0cufJEC2jWE5ldSfunABU8hXU1AVn
+         xk/YHWS/mr7iJkwMh+K1B8sGF0XMeNr2YX1mkgL0CQbiypmcmlC8YErwzw/dioyEAMSR
+         XE92UtooZOOKsG/NBHAeU8jjHWCe/MMjIf3oQDu8pnekXvhdC3PYWbJLi+u52GqC58fj
+         NJAw==;
+        dara=google.com
+ARC-Authentication-Results: i=1; mx.google.com;
+       dkim=pass header.i=@gmail.com header.s=20230601 header.b=PfUYJKF5;
+       spf=pass (google.com: domain of matteo.merv@gmail.com designates 209.85.220.41 as permitted sender) smtp.mailfrom=matteo.merv@gmail.com;
+       dmarc=pass (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com;
+       dara=pass header.i=@gmail.com
+Return-Path: <matteo.merv@gmail.com>
+Received: from mail-sor-f41.google.com (mail-sor-f41.google.com. [209.85.220.41])
+        by mx.google.com with SMTPS id d2e1a72fcca58-7198e13a791sor2385441b3a.4.2024.09.20.01.47.35
+        (Google Transport Security);
+        Fri, 20 Sep 2024 01:47:35 -0700 (PDT)
+Received-SPF: pass (google.com: domain of matteo.merv@gmail.com designates 209.85.220.41 as permitted sender) client-ip=209.85.220.41;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@gmail.com header.s=20230601 header.b=PfUYJKF5;
+       spf=pass (google.com: domain of matteo.merv@gmail.com designates 209.85.220.41 as permitted sender) smtp.mailfrom=matteo.merv@gmail.com;
+       dmarc=pass (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com;
+       dara=pass header.i=@gmail.com
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20230601; t=1726822054; x=1727426854; dara=google.com;
+        h=cc:to:subject:message-id:date:from:mime-version:from:to:cc:subject
+         :date:message-id:reply-to;
+        bh=8y4eZr5itf8wnutGYTPof5OKtUcCibJIDk5gKunUfeQ=;
+        b=PfUYJKF5IOZHxNT6vCVx+/uxuuuQO9WUWpXzZZsWlzY3oz9aJmN6Bov0qwq6jPKbGd
+         bnB3WBICP4DG/XGUBSP1lGwq+DGGGDyq0nCJZuRyFM1JJMq3LfAhaAxDpmuHyg3wlLXX
+         UjznW55ewtcOv/5H6fvJC7tIP/vZChgtUOVaxrQc1bnG73MO609UKPO4OF6xiCc5Bf8t
+         MbQogY1zr1A9hPRvUkiuk7YUEg1GPucvS0QqALfMouvpeF2iZfKd2lzo0SHgw2OS+CG+
+         2mtntEUprV/QmYc2ZfiNfmaRN1bn4tpTvg99Rt7N9rizR+QeWR5VbX6xFBZXjtibCXVv
+         eeow==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1726822054; x=1727426854;
+        h=cc:to:subject:message-id:date:from:mime-version:x-gm-message-state
+         :from:to:cc:subject:date:message-id:reply-to;
+        bh=8y4eZr5itf8wnutGYTPof5OKtUcCibJIDk5gKunUfeQ=;
+        b=PlDA38UpnjzA1Q3nyl59rbeyom1GBvXwT8DVN745upJTCO9hmbggCzSUQBK4elEGy0
+         51UxxEVroP1Nj3FUijXdzV/EI/qQxmGlJrOiClHyIc7qhYFjwrthJSnnGZaNroLeEPse
+         MgBJJCuf91sP1VSuliI02n9XWxRjKPiHGz1NCMkrAhdixbVtVCdFBQgGEu7IO7gpah62
+         c5eCGjc25RB+EWgjTQZalsGHQO92lbNCYQ0pRgCjCTh3Jl6mTdtdyR6Xz5jG0OnssIpw
+         o06J7+npnI9TYHCooVcmuUH93nRJjWEGi3SW5I8dq6EgXxRijfTgiaQBZxF4WqU1Hozo
+         O35A==
+X-Gm-Message-State: AOJu0YykXNTSoTcZzFP2Y3RDiUPynSJqUgIqhrKkcooYCd9B0Mj5BIuG
+	phKCSf8htrTZ9A+ojICCyMWvfL7l8WeGPbhXoDKTIBZifMfU5CqOMgjvj+vf79DrWzfUH5V/wxs
+	FoDnKqD7VXMm4g3h/vjF/VxjBUQLW9kqmBnU=
+X-Google-Smtp-Source: AGHT+IGlD9KVb33hvAe08nxMCW8KiDc3nGcMYk3YaqDREd5KpoB7ItfX5RwQL05VUNz5cVzpAOYvJ33z6LD+s+BGpRY=
+X-Received: by 2002:a05:6a00:140d:b0:714:228d:e9f2 with SMTP id
+ d2e1a72fcca58-7199b06b963mr3664738b3a.3.1726822054192; Fri, 20 Sep 2024
+ 01:47:34 -0700 (PDT)
+MIME-Version: 1.0
+From: Matteo <matteo.merv@gmail.com>
+Date: Fri, 20 Sep 2024 10:47:22 +0200
+Message-ID: <CA+1b2xWe_CZmBn9BSuZY=+iedxY-xnm9+5vXwDifBpn5AdJ6Zw@mail.gmail.com>
+Subject: new move
+To: Matteo Mervoyer <matteomervoyer@gmail.com>
+Cc: matteo mervoyer <matmatteomer@gmail.com>
+Content-Type: multipart/alternative; boundary="0000000000002171ad0622891718"
+
+--0000000000002171ad0622891718
+Content-Type: text/plain; charset="UTF-8"
+
+MOVE: Qxf7#
+FEN: rn1qkbnr/pbpp1Qpp/1p6/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4
+
+--0000000000002171ad0622891718
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr">MOVE:=C2=A0Qxf7#<div>FEN: rn1qkbnr/pbpp1Qpp/1p6/4p3/2B1P3/=
+8/PPPP1PPP/RNB1K1NR b KQkq - 0 4</div></div>
+
+--0000000000002171ad0622891718--

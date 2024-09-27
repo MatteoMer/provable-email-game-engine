@@ -3,4 +3,19 @@ name = "referee"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name="referee"
+path = "src/lib.rs"
+
 [dependencies]
+risc0-zkvm = "1.1.0"
+hyle_contract = { git = "https://github.com/hyle-org/hyle-cosmos.git", branch = "main" }
+base64 = "0.22.1"
+serde_json = "1.0.128"
+async-imap = "0.10.1"
+async-native-tls = "0.5.0"
+futures = "0.3.30"
+tokio = { version = "1.40.0", features = ["full"] }
+anyhow = "1.0.89"
+async-std = "1.13.0"
+chrono = "0.4.38"

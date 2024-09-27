@@ -1,0 +1,22 @@
+{
+  "name": "zkemail",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@types/mocha": "^10.0.8",
+    "@zk-email/circuits": "^6.1.5-nightly.2024-09-16",
+    "@zk-email/contracts": "^6.1.5",
+    "@zk-email/helpers": "^6.1.5",
+    "@zk-email/zk-regex-circom": "^2.1.1",
+    "commander": "^12.1.0",
+    "fs": "^0.0.1-security",
+    "path": "^0.12.7",
+    "snarkjs": "^0.7.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.5",
+    "chai": "^4.3.6",
+    "circom_tester": "^0.0.20"
+  }
+}

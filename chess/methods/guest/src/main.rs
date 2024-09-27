@@ -2,7 +2,7 @@
 // LastPosition impl for Visitor is taken from the pgn_reader docs
 // https://docs.rs/pgn-reader/latest/pgn_reader/
 
-use hyle_contract::HyleInput;
+use hyle_contract::{HyleInput, HyleOutput};
 use pgn_reader::{BufferedReader, RawHeader, SanPlus, Skip, Visitor};
 use risc0_zkvm::guest::env;
 use shakmaty::fen::Fen;
@@ -67,5 +67,17 @@ fn main() {
 
     let is_checkmate: bool = pos.is_checkmate();
 
-    env::commit(&is_checkmate);
+    let null_state = 0u32.to_be_bytes().to_vec();
+
+    env::commit(&HyleOutput {
+        version: 1,
+        index: 0,
+        identity: "".to_string(),
+        tx_hash: input.tx_hash,
+        program_outputs: is_checkmate,
+        payloads: pgn.clone().as_bytes().to_vec(),
+        success: is_checkmate,
+        initial_state: input.initial_state,
+        next_state: null_state.clone(),
+    });
 }

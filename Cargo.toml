@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-imap = "0.10.1"
 pgn-reader = "0.26.0"
 shakmaty = "0.27.1"
 
