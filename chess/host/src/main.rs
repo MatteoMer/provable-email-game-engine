@@ -20,7 +20,14 @@ async fn main() {
     let password: String = std::env::var("REFEREE_IMAP_PASSWORD").unwrap();
     let port: u16 = std::env::var("REFEREE_IMAP_PORT").unwrap().parse().unwrap();
     let engine = ChessEngine::new(HyleNetwork::Devnet);
-    let mut server = EmailServer::new(&engine, "PGNv3", &domain, port, &username, &password);
+    let mut server = EmailServer::new(
+        &engine,
+        "CheckmateVerifierV1",
+        &domain,
+        port,
+        &username,
+        &password,
+    );
     server.run().await;
 
     /*

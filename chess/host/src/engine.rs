@@ -1,9 +1,15 @@
+use std::str::FromStr;
+
 use async_imap::types::Fetch;
 use hyle_contract::{HyleInput, HyleOutput};
+use mailparse::*;
 use methods::{CHESS_GUEST_ELF, CHESS_GUEST_ID};
 use referee::hyle::HyleNetwork;
 use referee::server::ServerConfig;
+use regex::Regex;
 use risc0_zkvm::{default_prover, ExecutorEnv, Receipt};
+
+use shakmaty::{fen::Fen, san::San, Board, CastlingMode, Chess, Move, Position};
 
 #[derive(Clone, Copy)]
 pub struct ChessEngine {
@@ -19,13 +25,66 @@ impl ChessEngine {
 impl ServerConfig for ChessEngine {
     // maybe program_inputs
     // not with a string?
-    fn process_email(&self, input: &Fetch) -> Option<(Vec<u8>, String, String)> {
+    fn process_email(&self, message: &Fetch) -> Option<(Vec<u8>, String, String)> {
         //TODO: process email instead of hardcoding PGN
-        let pgn: String = "1. d4 e6 2. e3 d5 3. a3 c5 4. c4 cxd4 5. Qxd4 Nc6 6. Qc3 Nf6 7. Nd2 Bd6 8. f4 O-O 9. cxd5 Nxd5 10. Qc2 Nxe3 11. Qd3 Bxf4 12. Qxd8 Rxd8 13. Ngf3 Nxf1 14. Rxf1 Bxd2+ 15. Bxd2 b6 16. Rd1 Bb7 17. Ng5 f6 18. Nxe6 Re8 19. Kf2 Rxe6 20. Bc3 Ne5 21. Bxe5 Rxe5 22. Rd7 Bd5 23. Rc1 Rae8 24. Rcc7 Re2+ 25. Kg3 R8e3+ 26. Kf4 Re4+ 27. Kf5 Be6# 0-1".to_string();
 
+        let body = message.body().expect("message did not have a body!");
+
+        let parsed_email = parse_mail(body).unwrap();
         let null_state = 0u32.to_be_bytes().to_vec();
         let identiy = "".to_string();
-        Some((null_state, identiy, pgn.clone()))
+
+        if let Some(body_part) = parsed_email.subparts.first() {
+            let body_content = body_part.get_body().ok()?;
+
+            // Extract MOVE
+            let move_regex = Regex::new(r"MOVE:\s*(.+)").unwrap();
+            let chess_move_string = move_regex
+                .captures(&body_content)
+                .and_then(|cap| cap.get(1))
+                .map(|m| m.as_str().trim())
+                .unwrap_or("Move not found");
+
+            // Extract FEN
+            let fen_regex = Regex::new(r"FEN:\s*(.+)").unwrap();
+            let fen_string = fen_regex
+                .captures(&body_content)
+                .and_then(|cap| cap.get(1))
+                .map(|m| m.as_str().trim())
+                .unwrap_or("FEN not found");
+
+            println!("MOVE: {}", chess_move_string);
+            println!("FEN: {}", fen_string);
+
+            let fen = Fen::from_ascii(fen_string.as_bytes());
+
+            // invalid fen in the mail
+            // TODO: send mail about the invalid move to the player
+            if fen.is_err() {
+                return None;
+            }
+            let fen = fen.unwrap();
+
+            // TODO: not making the server crash when someone sends an illegal move
+            let position = fen.into_position::<Chess>(CastlingMode::Standard).unwrap();
+            let chess_move: Move = chess_move_string
+                .parse::<San>()
+                .unwrap()
+                .to_move(&position)
+                .unwrap();
+
+            let position = position.play(&chess_move).unwrap();
+            // only prove the move when it's mate
+            if position.is_checkmate() {
+                let inputs = (chess_move_string, fen_string);
+                let serialized_args = serde_json::to_string(&inputs).unwrap();
+                Some((null_state, identiy, serialized_args))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     fn prove(&self, input: &HyleInput<String>) -> Receipt {

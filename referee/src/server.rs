@@ -105,8 +105,7 @@ impl<T: ServerConfig + Clone> EmailServer<T> {
                 );
                 let processed_message = self.config.process_email(&message);
                 // if it's some, then we need to process the risc0 proof
-                if processed_message.is_some() {
-                    let (initial_state, identity, program_inputs) = processed_message.unwrap();
+                if let Some((initial_state, identity, program_inputs)) = processed_message {
                     let _ = self
                         .compute_and_publish_risc0_proof(&initial_state, &identity, &program_inputs)
                         .await;
@@ -122,6 +121,7 @@ impl<T: ServerConfig + Clone> EmailServer<T> {
         Ok(())
     }
 
+    // note: program_inputs is a serde serialized string
     async fn compute_and_publish_risc0_proof(
         &self,
         initial_state: &[u8],
@@ -138,11 +138,11 @@ impl<T: ServerConfig + Clone> EmailServer<T> {
 
         let hyle_input = hyle
             .publish_payload(
-                &identity,
+                identity,
                 &self.contract_name,
-                &BASE64_STANDARD.encode(program_inputs.clone()),
-                &initial_state,
-                &program_inputs,
+                &BASE64_STANDARD.encode(program_inputs),
+                initial_state,
+                program_inputs,
             )
             .unwrap();
 
