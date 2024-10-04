@@ -1,33 +1,83 @@
-use std::str::FromStr;
+use std::{path::Path, str::FromStr};
 
 use async_imap::types::Fetch;
 use hyle_contract::{HyleInput, HyleOutput};
+use lettre::{
+    message::header::ContentType, transport::smtp::authentication::Credentials, Message,
+    SmtpTransport, Transport,
+};
 use mailparse::*;
 use methods::{CHESS_GUEST_ELF, CHESS_GUEST_ID};
 use referee::hyle::HyleNetwork;
 use referee::server::ServerConfig;
 use regex::Regex;
 use risc0_zkvm::{default_prover, ExecutorEnv, Receipt};
+use shakmaty::{
+    fen::Fen, san::San, Board, CastlingMode, Chess, EnPassantMode, Move, Position, Setup,
+};
+use tracing_subscriber::fmt::format;
+use urlencoding::encode;
 
-use shakmaty::{fen::Fen, san::San, Board, CastlingMode, Chess, Move, Position};
-
-#[derive(Clone, Copy)]
+// TODO: move email stuff to ref
+#[derive(Clone)]
 pub struct ChessEngine {
     network: HyleNetwork,
+    ref_mail: String,
+    mailer: SmtpTransport,
 }
 
 impl ChessEngine {
-    pub fn new(network: HyleNetwork) -> Self {
-        Self { network }
+    pub async fn new(
+        network: HyleNetwork,
+        username: &str,
+        password: &str,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        // TODO: make it in the ref and customizable
+        let server = "smtp.gmail.com";
+        let port = 465;
+        let mailer = SmtpTransport::relay(server)?
+            .credentials(Credentials::new(username.to_string(), password.to_string()))
+            .port(port)
+            .build();
+        Ok(Self {
+            network,
+            ref_mail: username.to_string(),
+            mailer,
+        })
+    }
+
+    fn send_move_by_mail(
+        &self,
+        from: &str,
+        to_mail: &str,
+        to_name: &str,
+        fen: &str,
+        chess_move: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let message = Message::builder()
+            .from(format!("Referee <{}>", from).parse()?)
+            .to(format!("{} <{}>", to_name, to_mail).parse()?)
+            .subject("New move from your opponent")
+            .header(ContentType::TEXT_HTML)
+            .body(String::from(format!("<body><p>Your opponent played <b>{}</p><p><img src=\"https://fen2image.chessvision.ai/{}.png\"></p></body>", chess_move, encode(fen))))?;
+
+        self.mailer.send(&message)?;
+        Ok(())
+    }
+
+    fn extract_from_addr(&self, mail: &ParsedMail) -> (String, String) {
+        // Parse the address
+        match &addrparse_header(mail.headers.get_first_header("From").unwrap()).unwrap()[0] {
+            MailAddr::Single(info) => {
+                return (info.display_name.clone().unwrap(), info.addr.clone())
+            }
+            _ => panic!(),
+        }
     }
 }
 
 impl ServerConfig for ChessEngine {
-    // maybe program_inputs
-    // not with a string?
-    fn process_email(&self, message: &Fetch) -> Option<(Vec<u8>, String, String)> {
-        //TODO: process email instead of hardcoding PGN
-
+    fn process_email(&mut self, message: &Fetch) -> Option<(Vec<u8>, String, String)> {
         let body = message.body().expect("message did not have a body!");
 
         let parsed_email = parse_mail(body).unwrap();
@@ -36,6 +86,8 @@ impl ServerConfig for ChessEngine {
 
         if let Some(body_part) = parsed_email.subparts.first() {
             let body_content = body_part.get_body().ok()?;
+
+            let (from_id, from_addr) = self.extract_from_addr(&parsed_email);
 
             // Extract MOVE
             let move_regex = Regex::new(r"MOVE:\s*(.+)").unwrap();
@@ -80,6 +132,16 @@ impl ServerConfig for ChessEngine {
                 let serialized_args = serde_json::to_string(&inputs).unwrap();
                 Some((null_state, identiy, serialized_args))
             } else {
+                let setup: Setup = position.into_setup(EnPassantMode::Legal);
+                let fen: Fen = setup.into();
+                self.send_move_by_mail(
+                    &self.ref_mail,
+                    &from_addr,
+                    &from_id,
+                    &fen.to_string(),
+                    chess_move_string,
+                )
+                .expect(format!("could not send mail to {}", from_addr).as_str());
                 None
             }
         } else {

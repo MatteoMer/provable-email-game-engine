@@ -10,7 +10,6 @@ referee = { path = "../../referee"}
 risc0-zkvm = { version = "1.0.5" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde = "1.0"
-base64 = "0.22.1"
 serde_json = "1.0.128"
 hex = "0.4.3"
 tokio = { version = "1.40.0", features = ["full"] }
@@ -18,3 +17,7 @@ async-imap = "0.10.1"
 mailparse = "0.15.0"
 regex = "1.10.6"
 shakmaty = "0.27.2"
+dirs = "5.0.1"
+rust-gmail = "0.2.1"
+lettre = "0.11.9"
+urlencoding = "2.1.3"

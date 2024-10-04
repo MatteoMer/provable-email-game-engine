@@ -14,7 +14,7 @@ use futures::TryStreamExt;
 use tokio::time::{self, Duration};
 
 pub trait ServerConfig {
-    fn process_email(&self, content: &Fetch) -> Option<(Vec<u8>, String, String)>;
+    fn process_email(&mut self, content: &Fetch) -> Option<(Vec<u8>, String, String)>;
     fn prove(&self, hyle_input: &HyleInput<String>) -> Receipt;
 }
 

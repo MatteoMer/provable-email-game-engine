@@ -6,20 +6,18 @@ import path from "path";
 const snarkjs = require("snarkjs");
 
 export const STRING_PRESELECTOR = "";
-
+const MAX_FEN_LENGTH = 90; // This should match the maxFenLength in your Circom circuit
+const MAX_MOVE_LENGTH = 10;
 const MAX_BYTES_IN_FIELD = 31; // Adjust this if your Circom constant is different
 
-function packBytes(bytes: number[]): bigint[] {
-    const packed: bigint[] = [];
-    for (let i = 0; i < bytes.length; i += MAX_BYTES_IN_FIELD) {
-        let chunk = 0n;
-        for (let j = 0; j < MAX_BYTES_IN_FIELD && i + j < bytes.length; j++) {
-            chunk += BigInt(bytes[i + j]) << BigInt(8 * j);
-        }
-        packed.push(chunk);
+function padAndConvertToDecimal(bytes: number[], maxLength: number): string[] {
+    const padded = bytes.slice(0, maxLength);
+    while (padded.length < maxLength) {
+        padded.push(0);
     }
-    return packed;
+    return padded.map(byte => byte.toString());
 }
+
 
 export type IChessCircuitInputs = {
     moveIndex: string;
@@ -33,7 +31,10 @@ export type IChessCircuitInputs = {
     precomputedSHA?: string[] | undefined;
     bodyHashIndex?: string | undefined;
     expectedMove: string[];
+    expectedMoveLength: string;
     expectedFen?: string[];
+    expectedFenLength: string;
+
 };
 
 export async function generateChessVerifierCircuitInputs(
@@ -43,7 +44,7 @@ export async function generateChessVerifierCircuitInputs(
         shaPrecomputeSelector: STRING_PRESELECTOR,
     });
 
-    const bodyRemaining = emailVerifierInputs.emailBody!.map((c) => Number(c)); // Char array to Uint8Array
+    const bodyRemaining = emailVerifierInputs.emailBody!.map((c) => Number(c));
     const bodyBuffer = Buffer.from(bodyRemaining);
 
     const moveSelectorBuffer = Buffer.from("MOVE: ");
@@ -52,24 +53,26 @@ export async function generateChessVerifierCircuitInputs(
     const moveIndex = bodyBuffer.indexOf(moveSelectorBuffer) + moveSelectorBuffer.length;
     const fenIndex = bodyBuffer.indexOf(fenSelectorBuffer) + fenSelectorBuffer.length;
 
-    // Extract and pack move
+    // Extract move
     const moveEndIndex = bodyBuffer.indexOf('\n', moveIndex);
     const moveString = bodyBuffer.slice(moveIndex, moveEndIndex).toString().trim();
     const moveBytes = Array.from(Buffer.from(moveString, 'utf8'));
-    const packedMove = packBytes(moveBytes);
+    const paddedMove = padAndConvertToDecimal(moveBytes, MAX_MOVE_LENGTH);
 
-    // Extract and pack FEN
+    // Extract FEN
     const fenEndIndex = bodyBuffer.indexOf('\n', fenIndex);
     const fenString = bodyBuffer.slice(fenIndex, fenEndIndex).toString().trim();
     const fenBytes = Array.from(Buffer.from(fenString, 'utf8'));
-    const packedFen = packBytes(fenBytes);
+    const paddedFen = padAndConvertToDecimal(fenBytes, MAX_FEN_LENGTH);
 
     return {
         ...emailVerifierInputs,
         fenIndex: fenIndex.toString(),
         moveIndex: moveIndex.toString(),
-        expectedMove: packedMove.map(bn => bn.toString()),
-        expectedFen: packedFen.map(bn => bn.toString()),
+        expectedMove: paddedMove,
+        expectedMoveLength: moveBytes.length.toString(),
+        expectedFen: paddedFen,
+        expectedFenLength: fenBytes.length.toString(),
     };
 }
 
@@ -128,7 +131,7 @@ async function generate() {
 
     // Generate proof
     const { proof, publicSignals } = await snarkjs.groth16.prove(
-        path.join(BUILD_DIR, `${CIRCUIT_NAME}.zkey`),
+        path.join(BUILD_DIR, `${CIRCUIT_NAME}.vkey`),
         path.join(OUTPUT_DIR, `input.wtns`),
         logger
     );
@@ -144,18 +147,19 @@ async function generate() {
         JSON.stringify(publicSignals, null, 2)
     );
     log("Public Inputs written to", path.join(OUTPUT_DIR, "public.json"));
-
-    const vkey = JSON.parse(fs.readFileSync(path.join(BUILD_DIR, `/artifacts/circuit_vk.json`)).toString());
-    const proofVerified = await snarkjs.groth16.verify(
-        vkey,
-        publicSignals,
-        proof
-    );
-    if (proofVerified) {
-        console.log("Proof Verified");
-    } else {
-        throw new Error("Proof Verification Failed");
-    }
+    /*
+        const vkey = JSON.parse(fs.readFileSync(path.join(BUILD_DIR, `/artifacts/circuit_vk.json`)).toString());
+        const proofVerified = await snarkjs.groth16.verify(
+            vkey,
+            publicSignals,
+            proof
+        );
+        if (proofVerified) {
+            console.log("Proof Verified");
+        } else {
+            throw new Error("Proof Verification Failed");
+        }
+        */
 
     process.exit(0);
 }

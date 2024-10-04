@@ -1,13 +1,11 @@
 pragma circom 2.1.5;
 
-include "@zk-email/zk-regex-circom/circuits/common/from_addr_regex.circom";
 include "@zk-email/circuits/email-verifier.circom";
+include "@zk-email/zk-regex-circom/circuits/common/from_addr_regex.circom";
 include "@zk-email/circuits/utils/regex.circom";
-include "chess-fen-regex.circom";
-// include "https://github.com/0xPARC/circom-secp256k1/blob/master/circuits/bigint.circom";
 
 
-template ChessVerifier (maxHeadersLength, maxBodyLength, n, k) {
+template ChessVerifier (maxHeadersLength, maxBodyLength, n, k, maxFenLength, maxMoveLength) {
     signal input emailHeader[maxHeadersLength];
     signal input emailHeaderLength;
     signal input pubkey[k];
@@ -18,10 +16,22 @@ template ChessVerifier (maxHeadersLength, maxBodyLength, n, k) {
     signal input precomputedSHA[32];
     signal input fenIndex;
     signal input moveIndex;
-    signal input expectedMove;
-    signal input expectedFen[3];
+    signal input expectedMove[maxMoveLength];
+    signal input expectedMoveLength;
+    signal input expectedFen[maxFenLength];
+    signal input expectedFenLength;
 
     signal output pubkeyHash;
+
+    // INPUT VALIDATION
+    signal validFenLength;
+    validFenLength <-- (expectedFenLength > 0) && (expectedFenLength <= maxFenLength);
+    validFenLength === 1;
+
+    signal validMoveLength;
+    validMoveLength <-- (expectedMoveLength > 0) && (expectedMoveLength <= maxMoveLength);
+    validMoveLength === 1;
+
 
     component EV = EmailVerifier(maxHeadersLength, maxBodyLength, n, k, 0,0,0,0);
 
@@ -36,36 +46,43 @@ template ChessVerifier (maxHeadersLength, maxBodyLength, n, k) {
 
     pubkeyHash <== EV.pubkeyHash;
 
-    // // FROM HEADER REGEX
-    // signal input fromEmailIndex;
 
-    // // Assert fromEmailIndex < emailHeaderLength
-    // signal isFromIndexValid <== LessThan(log2Ceil(maxHeadersLength))([fromEmailIndex, emailHeaderLength]);
-    // isFromIndexValid === 1;
+    // FROM HEADER REGEX
+    signal input fromEmailIndex;
 
-    // signal (fromEmailFound, fromEmailReveal[maxHeadersLength]) <== FromAddrRegex(maxHeadersLength)(emailHeader);
-    // fromEmailFound === 1;
+    // Assert fromEmailIndex < emailHeaderLength
+    signal isFromIndexValid <== LessThan(log2Ceil(maxHeadersLength))([fromEmailIndex, emailHeaderLength]);
+    isFromIndexValid === 1;
 
-    // var maxEmailLength = 255;
+    signal (fromEmailFound, fromEmailReveal[maxHeadersLength]) <== FromAddrRegex(maxHeadersLength)(emailHeader);
+    fromEmailFound === 1;
 
-    // signal output fromEmailAddrPacks[9] <== PackRegexReveal(maxHeadersLength, maxEmailLength)(fromEmailReveal, fromEmailIndex);
+    var maxEmailLength = 255;
 
-    // CHESS FEN AND MOVE REGEX
-    signal (found, revealMove[maxBodyLength], revealFen[maxBodyLength]) <== ChessFenRegex(maxBodyLength)(emailBody);
-    found === 1;
+    signal output fromEmailAddrPacks[9] <== PackRegexReveal(maxHeadersLength, maxEmailLength)(fromEmailReveal, fromEmailIndex);
 
-    var maxMoveLen = 10; // super rare but i think it could be 10
-    signal movePacks[1] <== PackRegexReveal(maxBodyLength, maxMoveLen)(revealMove, moveIndex);
+    signal inRange[maxFenLength];
+    signal bodyChar[maxFenLength];
+    signal charEqual[maxFenLength];
 
-    var maxFenLen = 90; 
-    signal fenPacks[3] <== PackRegexReveal(maxBodyLength, maxFenLen)(revealFen, fenIndex);
+    for (var i = 0; i < maxFenLength; i++) {
+        inRange[i] <-- i < expectedFenLength ? 1 : 0;
+        bodyChar[i] <-- emailBody[fenIndex + i];
+        charEqual[i] <-- (bodyChar[i] - expectedFen[i]) * inRange[i];
+        charEqual[i] === 0;
+    }
 
-    expectedMove === movePacks[0];
-    expectedFen[0] === fenPacks[0];
-    expectedFen[1] === fenPacks[1];
-    expectedFen[2] === fenPacks[2];
+    signal moveInRange[maxMoveLength];
+    signal moveBodyChar[maxMoveLength];
+    signal moveCharEqual[maxMoveLength];
+    for (var i = 0; i < maxMoveLength; i++) {
+        moveInRange[i] <-- i < expectedMoveLength ? 1 : 0;
+        moveBodyChar[i] <-- emailBody[moveIndex + i];
+        moveCharEqual[i] <-- (moveBodyChar[i] - expectedMove[i]) * moveInRange[i];
+        moveCharEqual[i] === 0;
+    }
 
 
 }
 
-component main { public [ fenIndex, moveIndex ] } = ChessVerifier(1024, 1536, 121, 17);
+component main { public [ fenIndex, moveIndex, expectedFen, expectedFenLength, expectedMove, expectedMoveLength ] } = ChessVerifier(1024, 1536, 121, 17, 90, 10);
