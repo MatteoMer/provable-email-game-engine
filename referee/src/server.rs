@@ -18,20 +18,19 @@ pub trait ServerConfig {
     fn prove(&self, hyle_input: &HyleInput<String>) -> Receipt;
 }
 
-#[derive(Clone)]
-pub struct EmailServer<T: ServerConfig> {
+pub struct EmailServer<'a, T: ServerConfig> {
     domain: String,
     port: u16,
     username: String,
     password: String,
     contract_name: String,
-    config: T,
+    config: &'a mut T,
     last_checked: Option<DateTime<Utc>>,
 }
 
-impl<T: ServerConfig + Clone> EmailServer<T> {
+impl<'a, T: ServerConfig> EmailServer<'a, T> {
     pub fn new(
-        config: &T,
+        config: &'a mut T,
         contract_name: &str,
         domain: &str,
         port: u16,
@@ -43,7 +42,7 @@ impl<T: ServerConfig + Clone> EmailServer<T> {
             username: username.to_string(),
             password: password.to_string(),
             port,
-            config: config.clone(),
+            config,
             contract_name: contract_name.to_string(),
             last_checked: None,
         }

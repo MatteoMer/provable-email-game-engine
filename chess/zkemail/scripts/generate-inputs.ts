@@ -6,6 +6,7 @@ import path from "path";
 const snarkjs = require("snarkjs");
 
 export const STRING_PRESELECTOR = "";
+export const STRING_PRESELECTOR_FROM = "\nfrom:";
 const MAX_FEN_LENGTH = 90; // This should match the maxFenLength in your Circom circuit
 const MAX_MOVE_LENGTH = 10;
 const MAX_BYTES_IN_FIELD = 31; // Adjust this if your Circom constant is different
@@ -22,6 +23,7 @@ function padAndConvertToDecimal(bytes: number[], maxLength: number): string[] {
 export type IChessCircuitInputs = {
     moveIndex: string;
     fenIndex: string;
+    fromEmailIndex: string;
     emailHeader: string[];
     emailHeaderLength: string;
     pubkey: string[];
@@ -34,7 +36,6 @@ export type IChessCircuitInputs = {
     expectedMoveLength: string;
     expectedFen?: string[];
     expectedFenLength: string;
-
 };
 
 export async function generateChessVerifierCircuitInputs(
@@ -65,6 +66,35 @@ export async function generateChessVerifierCircuitInputs(
     const fenBytes = Array.from(Buffer.from(fenString, 'utf8'));
     const paddedFen = padAndConvertToDecimal(fenBytes, MAX_FEN_LENGTH);
 
+
+    // Extract from index
+    // Attribution: https://github.com/yehanlong/zk-email-test/blob/3ef6ebaa2c93ae5f342006f6b75039d3d6e245ca/packages/pick-two/helps/generate-input-two.ts#L12
+    const header = emailVerifierInputs.emailHeader!.map((c) => Number(c)); // Char array to Uint8Array
+    const selectorBufferFrom = Buffer.from(STRING_PRESELECTOR_FROM);
+    // console.log("selectorBufferFrom",selectorBufferFrom);
+    let fromEmailIndex = Buffer.from(header).indexOf(selectorBufferFrom);
+    // console.log("fromEmailIndex", fromEmailIndex.toString());
+    if (fromEmailIndex !== -1) {
+        fromEmailIndex += selectorBufferFrom.length;
+        // Continue searching for '<' symbol
+        let foundIndex = -1;
+        for (let i = fromEmailIndex; i < header.length; i++) {
+            if (header[i] === '<'.charCodeAt(0)) {
+                foundIndex = i;
+                break;
+            }
+        }
+
+        if (foundIndex !== -1) {
+            fromEmailIndex = foundIndex + 1;
+            // console.log("final fromEmailIndex:", fromEmailIndex);
+        } else {
+            throw new Error("Could not find '<' after fromEmailIndex");
+        }
+    } else {
+        throw new Error("fromEmailIndex not found");
+    }
+
     return {
         ...emailVerifierInputs,
         fenIndex: fenIndex.toString(),
@@ -73,6 +103,7 @@ export async function generateChessVerifierCircuitInputs(
         expectedMoveLength: moveBytes.length.toString(),
         expectedFen: paddedFen,
         expectedFenLength: fenBytes.length.toString(),
+        fromEmailIndex: fromEmailIndex.toString(),
     };
 }
 
@@ -131,7 +162,7 @@ async function generate() {
 
     // Generate proof
     const { proof, publicSignals } = await snarkjs.groth16.prove(
-        path.join(BUILD_DIR, `${CIRCUIT_NAME}.vkey`),
+        path.join(BUILD_DIR, `${CIRCUIT_NAME}.zkey`),
         path.join(OUTPUT_DIR, `input.wtns`),
         logger
     );

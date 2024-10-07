@@ -3,8 +3,9 @@ use std::{path::Path, str::FromStr};
 use async_imap::types::Fetch;
 use hyle_contract::{HyleInput, HyleOutput};
 use lettre::{
-    message::header::ContentType, transport::smtp::authentication::Credentials, Message,
-    SmtpTransport, Transport,
+    message::header::{self, ContentType},
+    transport::smtp::authentication::Credentials,
+    Message, SmtpTransport, Transport,
 };
 use mailparse::*;
 use methods::{CHESS_GUEST_ELF, CHESS_GUEST_ID};
@@ -18,12 +19,14 @@ use shakmaty::{
 use tracing_subscriber::fmt::format;
 use urlencoding::encode;
 
+use crate::db::{DbManager, Game};
+
 // TODO: move email stuff to ref
-#[derive(Clone)]
 pub struct ChessEngine {
     network: HyleNetwork,
     ref_mail: String,
     mailer: SmtpTransport,
+    db: DbManager,
 }
 
 impl ChessEngine {
@@ -39,10 +42,14 @@ impl ChessEngine {
             .credentials(Credentials::new(username.to_string(), password.to_string()))
             .port(port)
             .build();
+
+        let db_manager = DbManager::new("chess_positions.db")?;
+
         Ok(Self {
             network,
             ref_mail: username.to_string(),
             mailer,
+            db: db_manager,
         })
     }
 
@@ -51,15 +58,18 @@ impl ChessEngine {
         from: &str,
         to_mail: &str,
         to_name: &str,
+        opponent_mail: &str,
+        opponent_name: &str,
         fen: &str,
         chess_move: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let message = Message::builder()
             .from(format!("Referee <{}>", from).parse()?)
             .to(format!("{} <{}>", to_name, to_mail).parse()?)
-            .subject("New move from your opponent")
+            .cc(format!("{} <{}>", opponent_name, opponent_mail).parse()?)
+            .subject(format!("New valid move from {}", to_mail))
             .header(ContentType::TEXT_HTML)
-            .body(String::from(format!("<body><p>Your opponent played <b>{}</p><p><img src=\"https://fen2image.chessvision.ai/{}.png\"></p></body>", chess_move, encode(fen))))?;
+            .body(String::from(format!("<body><p>{} played <b>{}</p><p><img src=\"https://fen2image.chessvision.ai/{}.png\"></p><p>Current FEN (to pass in next mail): {}</p></body>", to_mail, chess_move, encode(fen), fen)))?;
 
         self.mailer.send(&message)?;
         Ok(())
@@ -73,6 +83,62 @@ impl ChessEngine {
             }
             _ => panic!(),
         }
+    }
+
+    fn extract_to_addr(&self, mail: &ParsedMail) -> (String, String) {
+        // Parse the address
+        match &addrparse_header(mail.headers.get_first_header("To").unwrap()).unwrap()[0] {
+            MailAddr::Single(info) => {
+                return (info.display_name.clone().unwrap(), info.addr.clone())
+            }
+            _ => panic!(),
+        }
+    }
+
+    fn extract_cc_addr(&self, mail: &ParsedMail) -> (String, String) {
+        // Parse the address
+        match &addrparse_header(mail.headers.get_first_header("Cc").unwrap()).unwrap()[0] {
+            MailAddr::Single(info) => {
+                return (info.display_name.clone().unwrap(), info.addr.clone())
+            }
+            _ => panic!(),
+        }
+    }
+
+    fn parse_mail_body(&self, body_content: &str) -> (String, Fen, bool) {
+        // Extract MOVE
+        let move_regex = Regex::new(r"MOVE:\s*(.+)").unwrap();
+        let chess_move_string = move_regex
+            .captures(&body_content)
+            .and_then(|cap| cap.get(1))
+            .map(|m| m.as_str().trim())
+            .unwrap_or("Move not found");
+
+        // Check for NEW GAME
+        let new_game_regex = Regex::new(r"NEW GAME:\s*(\S+@\S+)").unwrap();
+        let (is_new_game, _) = new_game_regex
+            .captures(&body_content)
+            .map(|cap| (true, cap.get(1).map(|m| m.as_str().to_string())))
+            .unwrap_or((false, None));
+
+        // Extract FEN if not a new game
+        // TODO: not making the server crash when someone sends an illegal FEN
+        let fen: Fen = if !is_new_game {
+            let fen_regex = Regex::new(r"FEN:\s*(.+)").unwrap();
+            let fen = fen_regex
+                .captures(&body_content)
+                .and_then(|cap| cap.get(1))
+                .map(|m| m.as_str().trim())
+                .unwrap_or("FEN not found");
+            Fen::from_str(&fen).expect("invalid FEN")
+        } else {
+            // It's a new game
+            let fen_string =
+                String::from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+            Fen::from_str(&fen_string).expect("invalid FEN")
+        };
+
+        (chess_move_string.to_string(), fen, is_new_game)
     }
 }
 
@@ -88,34 +154,32 @@ impl ServerConfig for ChessEngine {
             let body_content = body_part.get_body().ok()?;
 
             let (from_id, from_addr) = self.extract_from_addr(&parsed_email);
+            let (opponent_id, opponent_addr) = self.extract_cc_addr(&parsed_email);
 
-            // Extract MOVE
-            let move_regex = Regex::new(r"MOVE:\s*(.+)").unwrap();
-            let chess_move_string = move_regex
-                .captures(&body_content)
-                .and_then(|cap| cap.get(1))
-                .map(|m| m.as_str().trim())
-                .unwrap_or("Move not found");
+            let game_id = self
+                .db
+                .get_game_id(&from_addr, &opponent_addr)
+                .expect("couldnt get game id");
 
-            // Extract FEN
-            let fen_regex = Regex::new(r"FEN:\s*(.+)").unwrap();
-            let fen_string = fen_regex
-                .captures(&body_content)
-                .and_then(|cap| cap.get(1))
-                .map(|m| m.as_str().trim())
-                .unwrap_or("FEN not found");
+            let (chess_move_string, fen, is_new_game) = self.parse_mail_body(&body_content);
 
+            let mut game: Game = if (is_new_game) {
+                let game = Game::new(&from_addr, &opponent_addr);
+                // Use the starting position FEN for a new game
+                self.db.store_game(&game_id, &game);
+                println!(
+                    "new game FEN: {}",
+                    Fen::from_position(game.position.chess.clone(), EnPassantMode::Legal)
+                );
+
+                game
+            } else {
+                self.db.get_game(&game_id).unwrap()?
+            };
+
+            let fen_string = fen.to_string();
             println!("MOVE: {}", chess_move_string);
             println!("FEN: {}", fen_string);
-
-            let fen = Fen::from_ascii(fen_string.as_bytes());
-
-            // invalid fen in the mail
-            // TODO: send mail about the invalid move to the player
-            if fen.is_err() {
-                return None;
-            }
-            let fen = fen.unwrap();
 
             // TODO: not making the server crash when someone sends an illegal move
             let position = fen.into_position::<Chess>(CastlingMode::Standard).unwrap();
@@ -126,10 +190,18 @@ impl ServerConfig for ChessEngine {
                 .unwrap();
 
             let position = position.play(&chess_move).unwrap();
+            game.update(&position);
+            self.db.store_game(&game_id, &game);
+
             // only prove the move when it's mate
             if position.is_checkmate() {
                 let inputs = (chess_move_string, fen_string);
                 let serialized_args = serde_json::to_string(&inputs).unwrap();
+                self.db.delete_game(&game_id);
+                if let Some(email_data) = self.db.get_email(&game_id).ok()? {
+                    // Do something with the email data, like saving it to a file
+                    std::fs::write("game123.eml", email_data).ok()?;
+                }
                 Some((null_state, identiy, serialized_args))
             } else {
                 let setup: Setup = position.into_setup(EnPassantMode::Legal);
@@ -138,10 +210,14 @@ impl ServerConfig for ChessEngine {
                     &self.ref_mail,
                     &from_addr,
                     &from_id,
+                    &opponent_addr,
+                    &opponent_id,
                     &fen.to_string(),
-                    chess_move_string,
+                    &chess_move_string,
                 )
                 .expect(format!("could not send mail to {}", from_addr).as_str());
+                self.db.store_email(&game_id, body);
+
                 None
             }
         } else {

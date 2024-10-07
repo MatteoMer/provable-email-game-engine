@@ -1,6 +1,7 @@
 # TODO
-- db for chess games (keep track of games)
-- use identity for generating the moves
+- add email reply for mate
+- risc0 proving last two moves
 - add circom hyleinput/output and broadcast it on hyle
-- experiment with not using zkregex for circom (should be much cheaper)
-
+- proof composability
+- async workers
+- use identity for generating the moves
