@@ -178,19 +178,18 @@ async function generate() {
         JSON.stringify(publicSignals, null, 2)
     );
     log("Public Inputs written to", path.join(OUTPUT_DIR, "public.json"));
-    /*
-        const vkey = JSON.parse(fs.readFileSync(path.join(BUILD_DIR, `/artifacts/circuit_vk.json`)).toString());
-        const proofVerified = await snarkjs.groth16.verify(
-            vkey,
-            publicSignals,
-            proof
-        );
-        if (proofVerified) {
-            console.log("Proof Verified");
-        } else {
-            throw new Error("Proof Verification Failed");
-        }
-        */
+    const vkey = JSON.parse(fs.readFileSync(path.join(BUILD_DIR, `/circuit_vk.json`)).toString());
+    const proofVerified = await snarkjs.groth16.verify(
+        vkey,
+        publicSignals,
+        proof
+    );
+    if (proofVerified) {
+        console.log("Proof Verified");
+    } else {
+        throw new Error("Proof Verification Failed");
+    }
+
 
     process.exit(0);
 }

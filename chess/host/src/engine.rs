@@ -140,6 +140,23 @@ impl ChessEngine {
 
         (chess_move_string.to_string(), fen, is_new_game)
     }
+
+    fn get_risc0_inputs(
+        &self,
+        game_id: &str,
+        actual_move: &str,
+        actual_fen: &str,
+    ) -> Option<String> {
+        let prev_game_email = self.db.get_email(game_id).unwrap()?;
+        let parsed_mail = parse_mail(&prev_game_email).expect("could not parse prev email");
+        let body_part = parsed_mail.subparts.first().unwrap();
+        let body_content = body_part.get_body().unwrap();
+        let (prev_move, prev_fen, _) = self.parse_mail_body(&body_content);
+
+        let inputs = (actual_move, actual_fen, &prev_move, &prev_fen.to_string());
+
+        Some(serde_json::to_string(&inputs).unwrap())
+    }
 }
 
 impl ServerConfig for ChessEngine {
@@ -195,8 +212,9 @@ impl ServerConfig for ChessEngine {
 
             // only prove the move when it's mate
             if position.is_checkmate() {
-                let inputs = (chess_move_string, fen_string);
-                let serialized_args = serde_json::to_string(&inputs).unwrap();
+                let serialized_args =
+                    self.get_risc0_inputs(&game_id, &chess_move_string, &fen_string)?;
+
                 self.db.delete_game(&game_id);
                 if let Some(email_data) = self.db.get_email(&game_id).ok()? {
                     // Do something with the email data, like saving it to a file
