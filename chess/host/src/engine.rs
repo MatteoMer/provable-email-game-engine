@@ -12,7 +12,7 @@ use methods::{CHESS_GUEST_ELF, CHESS_GUEST_ID};
 use referee::hyle::HyleNetwork;
 use referee::server::ServerConfig;
 use regex::Regex;
-use risc0_zkvm::{default_prover, ExecutorEnv, Receipt};
+use risc0_zkvm::{default_prover, sha::Digestible, ExecutorEnv, Receipt};
 use shakmaty::{
     fen::Fen, san::San, Board, CastlingMode, Chess, EnPassantMode, Move, Position, Setup,
 };
@@ -70,6 +70,28 @@ impl ChessEngine {
             .subject(format!("New valid move from {}", to_mail))
             .header(ContentType::TEXT_HTML)
             .body(String::from(format!("<body><p>{} played <b>{}</p><p><img src=\"https://fen2image.chessvision.ai/{}.png\"></p><p>Current FEN (to pass in next mail): {}</p></body>", to_mail, chess_move, encode(fen), fen)))?;
+
+        self.mailer.send(&message)?;
+        Ok(())
+    }
+
+    fn send_mate_by_mail(
+        &self,
+        from: &str,
+        to_mail: &str,
+        to_name: &str,
+        opponent_mail: &str,
+        opponent_name: &str,
+        fen: &str,
+        chess_move: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let message = Message::builder()
+            .from(format!("Referee <{}>", from).parse()?)
+            .to(format!("{} <{}>", to_name, to_mail).parse()?)
+            .cc(format!("{} <{}>", opponent_name, opponent_mail).parse()?)
+            .subject(format!("{} won the game by checkmate!", to_mail))
+            .header(ContentType::TEXT_HTML)
+            .body(String::from(format!("<body><p>{} played <b>{}</b> and won by checkmate!</p><p><img src=\"https://fen2image.chessvision.ai/{}.png\"></p><p>You can now wait for our system to send the proofs to hyle, you'll get an email soon!</p></body>", to_mail, chess_move, encode(fen))))?;
 
         self.mailer.send(&message)?;
         Ok(())
@@ -215,12 +237,21 @@ impl ServerConfig for ChessEngine {
                 let serialized_args =
                     self.get_risc0_inputs(&game_id, &chess_move_string, &fen_string)?;
 
+                let setup: Setup = position.into_setup(EnPassantMode::Legal);
+                let fen: Fen = setup.into();
                 self.db.delete_game(&game_id);
-                if let Some(email_data) = self.db.get_email(&game_id).ok()? {
-                    // Do something with the email data, like saving it to a file
-                    std::fs::write("game123.eml", email_data).ok()?;
-                }
-                Some((null_state, identiy, serialized_args))
+                self.send_mate_by_mail(
+                    &self.ref_mail,
+                    &from_addr,
+                    &from_id,
+                    &opponent_addr,
+                    &opponent_id,
+                    &fen.to_string(),
+                    &chess_move_string,
+                )
+                .expect(format!("could not send mail to {}", from_addr).as_str());
+
+                Some((null_state, game_id, serialized_args))
             } else {
                 let setup: Setup = position.into_setup(EnPassantMode::Legal);
                 let fen: Fen = setup.into();

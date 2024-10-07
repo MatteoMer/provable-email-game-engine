@@ -4,6 +4,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use async_std::println;
 use hyle_contract::HyleInput;
 use risc0_zkvm::Receipt;
 
@@ -123,6 +124,8 @@ impl Hyle {
                 .write_all("y".as_bytes())
                 .expect("Failed to write to stdin");
         });
+
+        println!("[hyled] broadcasting");
 
         let output = hyled.wait_with_output().expect("Failed to read stdout");
 

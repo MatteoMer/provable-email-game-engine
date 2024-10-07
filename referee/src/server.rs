@@ -107,7 +107,8 @@ impl<'a, T: ServerConfig> EmailServer<'a, T> {
                 if let Some((initial_state, identity, program_inputs)) = processed_message {
                     let _ = self
                         .compute_and_publish_risc0_proof(&initial_state, &identity, &program_inputs)
-                        .await;
+                        .await
+                        .expect("could not broadcast on hyle");
                 }
                 self.last_checked = Some(internal_date.into());
             }

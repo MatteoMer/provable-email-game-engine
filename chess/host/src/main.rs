@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ChessEngine::new(HyleNetwork::Devnet, username.as_ref(), password.as_ref()).await?;
     let mut server = EmailServer::new(
         &mut engine,
-        "CheckmateVerifierV1",
+        "CheckmateVerifierV2",
         &domain,
         port,
         &username,
