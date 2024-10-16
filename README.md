@@ -3,6 +3,8 @@ This project consists of a library that enables to create provable [*play-by-ema
 
 We also provide an example project: a provable chess game played via emails.
 
+**This project is work in progress and might not work as expected** (i still need to polish the code)
+
 ## Architecture
 ![Architecture](./architecture.png)
 
