@@ -4,7 +4,7 @@ This project consists of a library that enables to create provable [*play-by-ema
 We also provide an example project: a provable chess game played via emails.
 
 ## Architecture
-TODO
+![Architecture](./architecture.png)
 
 ## Sponsor
 *This project is supported by [Hylé](hyle.eu), the blockchain lean blockchain for your provable apps*
