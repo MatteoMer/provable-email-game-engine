@@ -11,8 +11,8 @@ We provide an example project: a provable chess game played via email.
 - **Onchain settlement**: Settle your game on the Hylé chain at low cost and without latency.
 
 Learn more:
-- Technical presentation at Real World Cryptography Paris (link to be added)
 - [Generic presentation on the Hylé podcast](https://www.youtube.com/watch?v=QZjBa_WTvc8&list=PLmpAagesyEIVEB6_BKF5FH9A7gMaNCyaE&index=1)
+- Technical presentation at Real World Cryptography Paris //TODO
 
 ## How it works
 ![Architecture](./architecture.png)
